@@ -1,14 +1,12 @@
-import { create } from "domain";
 import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 
 export const userRouter = createTRPCRouter({
   getUserTable: publicProcedure.query(async ({ ctx }) => {
-    const users = await ctx.db.user.findMany({
-      orderBy: { createdAt: "asc" },
+    const users = await ctx.db.user.findFirst({
     });
-    return users ?? [];
+    return users;
   }),
 
   userExists: publicProcedure

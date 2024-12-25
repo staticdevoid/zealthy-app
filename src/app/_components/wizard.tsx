@@ -2,35 +2,29 @@
 
 import { useState } from "react";
 import { api } from "~/trpc/react";
+import { z, type ZodNumber, type ZodOptional, type ZodString } from "zod";
+import React from "react";
+import { type Field, type FieldType } from "@prisma/client";
+import { CustomFieldInput } from "./customInputField";
 
-type Field = {
-  id: number;
-  label: string;
-  fieldType: FieldType;
-  userProperty: string;
-  flexBoxWidth: number;
-  isRequired: boolean;
-};
+type PossibleValidators =
+  | ZodString
+  | ZodNumber
+  | ZodOptional<ZodString>
+  | ZodOptional<ZodNumber>;
 
-type FieldType =
-  | "TEXT"
-  | "MULTILINETEXT"
-  | "NUMBER"
-  | "DATE"
-  | "EMAIL"
-  | "PASSWORD"
-  | "ZIP";
-
-type Step = {
-  id: number;
-  title: string;
-  fields: Field[];
-};
-
-type FormLayout = {
-  id: number;
-  steps: Step[];
-};
+const fieldTypeValidationMap = {
+  MULTILINETEXT: z.string().min(1, "This field is mandatory"),
+  TEXT: z.string().min(1, "This field is mandatory"),
+  NUMBER: z.number(),
+  DATE: z.string().date("Please select a date"),
+  EMAIL: z.string().email("Please use a valid email"),
+  PASSWORD: z
+    .string()
+    .min(8, "Your password must be at least 8 characters long")
+    .max(16, "Your password must not exceed 16 characters"),
+  ZIP: z.string().length(5, "Must be 5 digits"),
+} as const;
 
 export function Wizard() {
   const {
@@ -40,25 +34,74 @@ export function Wizard() {
   } = api.wizard.getLayout.useQuery();
 
   const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState<Record<string, string>>({});
 
-  if (isLoading)
+  const [formData, setFormData] = useState<Map<string, string>>(
+    new Map([["", ""]]),
+  );
+  const [errors, setErrors] = useState<Map<string, string>>(new Map());
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const mutation = api.user.updateUserOnboarding.useMutation();
+
+  if (isLoading) {
     return <div className="p-8 text-center text-xl">Loading...</div>;
-  if (error)
+  }
+  if (error) {
     return (
       <div className="p-8 text-center text-xl text-red-500">
         Error: {error.message}
       </div>
     );
+  }
 
-  const handleChange = (fieldId: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [fieldId]: value,
-    }));
+  const currentStepData = formLayout?.steps[currentStep];
+
+
+  const validateField = (field: Field, input?: string): boolean => {
+    const value = input ?? formData.get(field.userProperty);
+
+    let validator: PossibleValidators = fieldTypeValidationMap[field.fieldType];
+    if (!field.isRequired && validator != null) {
+      validator = validator.optional();
+    }
+    const result = validator.safeParse(value);
+    if (!result.success) {
+      setErrors((prev) => {
+        const updated = new Map(prev);
+        updated.set(
+          field.userProperty,
+          result.error.errors[0]?.message ?? "undefined error",
+        );
+        return updated;
+      });
+      return false;
+    }
+    setErrors((prev) => {
+      const updated = new Map(prev);
+      updated.delete(field.userProperty);
+      return updated;
+    });
+    return true;
   };
 
-  const mutation = api.user.updateUserOnboarding.useMutation();
+  const validateCurrentStep = (): boolean => {
+    let valid = true;
+
+    currentStepData?.fields.forEach((field) => {
+      valid = validateField(field) ? valid : false;
+    });
+
+    return valid;
+  };
+
+  const handleFieldBlur = (field: Field, newValue: string) => {
+    validateField(field, newValue);
+    setFormData((prev) => {
+      const updated = new Map(prev);
+      updated.set(field.userProperty, newValue);
+      return updated;
+    });
+  };
 
   const saveDataToDB = async (
     userProperty: string,
@@ -77,149 +120,65 @@ export function Wizard() {
   };
 
   const handleNextStep = async () => {
-    const currentStepFields = formLayout?.steps[currentStep]?.fields;
-
-    const promises = currentStepFields?.map((field) => {
-      const fieldValue = formData[field.id];
-      if (fieldValue) {
-        return saveDataToDB(field.userProperty, fieldValue, field.fieldType);
-      }
-      return undefined;
-    });
-
-    if (promises?.some((promise) => promise === undefined)) {
+    const isValid = validateCurrentStep();
+    if (!isValid) {
       return;
     }
 
-    await Promise.all(promises!);
+    const currentStepFields = currentStepData?.fields;
+    if (currentStepFields?.length) {
+      const promises = currentStepFields.map((field) => {
+        const fieldValue = formData?.get(field.userProperty);
+        if (fieldValue) {
+          return saveDataToDB(field.userProperty, fieldValue, field.fieldType);
+        }
+      });
+      await Promise.all(promises);
+    }
 
     setCurrentStep((prevStep) =>
-      Math.min(prevStep + 1, formLayout?.steps.length ?? 0 - 1),
+      Math.min(prevStep + 1, (formLayout?.steps.length ?? 1) - 1),
     );
   };
 
   const handlePreviousStep = async () => {
-    const currentStepFields = formLayout?.steps[currentStep]?.fields;
-
-    const promises = currentStepFields?.map((field) => {
-      const fieldValue = formData[field.id];
-      if (fieldValue) {
-        return saveDataToDB(field.userProperty, fieldValue, field.fieldType);
-      }
-      return undefined;
-    });
-
-    if (promises?.some((promise) => promise === undefined)) {
-      return;
+    const currentStepFields = currentStepData?.fields;
+    if (currentStepFields?.length) {
+      const promises = currentStepFields.map((field) => {
+        const fieldValue = formData?.get(field.userProperty);
+        if (fieldValue) {
+          return saveDataToDB(field.userProperty, fieldValue, field.fieldType);
+        }
+      });
+      await Promise.all(promises);
     }
-
-    await Promise.all(promises!);
 
     setCurrentStep((prevStep) => Math.max(prevStep - 1, 0));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
-    const currentStepFields = formLayout?.steps[currentStep]?.fields;
-
-    const promises = currentStepFields?.map((field) => {
-      const fieldValue = formData[field.id];
-      if (fieldValue) {
-        return saveDataToDB(field.userProperty, fieldValue, field.fieldType);
-      }
-      return undefined;
-    });
-
-    if (promises?.some((promise) => promise === undefined)) {
+    const isValid = validateCurrentStep();
+    if (!isValid) {
+      setIsSubmitting(false);
       return;
     }
 
-    await Promise.all(promises!);
+    if (currentStepData?.fields?.length) {
+      const promises = currentStepData.fields.map((field) => {
+        const fieldValue = formData?.get(field.userProperty);
+        if (fieldValue) {
+          return saveDataToDB(field.userProperty, fieldValue, field.fieldType);
+        }
+      });
+      await Promise.all(promises);
+    }
 
     alert("Form submitted successfully!");
+    setIsSubmitting(false);
   };
-
-  const renderField = (field: Field) => {
-    const value = formData[field.id] || "";
-    const flexClass = `w-${field.flexBoxWidth}/4`; // Apply dynamic width based on flexBoxWidth
-
-    switch (field.fieldType) {
-      case "TEXT":
-        return (
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => handleChange(field.id.toString(), e.target.value)}
-            required={field.isRequired}
-            className="input rounded-lg border border-slate-400 p-3 focus:outline-none focus:ring-2 focus:ring-slate-500"
-          />
-        );
-      case "EMAIL":
-        return (
-          <input
-            type="email"
-            value={value}
-            onChange={(e) => handleChange(field.id.toString(), e.target.value)}
-            required={field.isRequired}
-            className="input rounded-lg border border-slate-400 p-3 focus:outline-none focus:ring-2 focus:ring-slate-500"
-          />
-        );
-      case "PASSWORD":
-        return (
-          <input
-            type="password"
-            value={value}
-            onChange={(e) => handleChange(field.id.toString(), e.target.value)}
-            required={field.isRequired}
-            className="input rounded-lg border border-slate-400 p-3 focus:outline-none focus:ring-2 focus:ring-slate-500"
-          />
-        );
-      case "NUMBER":
-        return (
-          <input
-            type="number"
-            value={value}
-            onChange={(e) => handleChange(field.id.toString(), e.target.value)}
-            required={field.isRequired}
-            className="input rounded-lg border border-slate-400 p-3 focus:outline-none focus:ring-2 focus:ring-slate-500"
-          />
-        );
-      case "DATE":
-        return (
-          <input
-            type="date"
-            value={value}
-            onChange={(e) => handleChange(field.id.toString(), e.target.value)}
-            required={field.isRequired}
-            className="input rounded-lg border border-slate-400 p-3 focus:outline-none focus:ring-2 focus:ring-slate-500"
-          />
-        );
-      case "MULTILINETEXT":
-        return (
-          <textarea
-            value={value}
-            onChange={(e) => handleChange(field.id.toString(), e.target.value)}
-            required={field.isRequired}
-            className="input rounded-lg border border-slate-400 p-3 focus:outline-none focus:ring-2 focus:ring-slate-500"
-          />
-        );
-      case "ZIP":
-        return (
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => handleChange(field.id.toString(), e.target.value)}
-            required={field.isRequired}
-            className="input rounded-lg border border-slate-400 p-3 focus:outline-none focus:ring-2 focus:ring-slate-500"
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
-  const currentStepData = formLayout?.steps[currentStep];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -228,7 +187,6 @@ export function Wizard() {
           {currentStepData?.title}
         </h2>
 
-        {/* Step Progress Indicator */}
         <div className="mb-6 flex items-center justify-center">
           {formLayout?.steps.map((step, index) => (
             <div key={step.id} className="flex items-center">
@@ -250,20 +208,23 @@ export function Wizard() {
           ))}
         </div>
 
-        <div className="fields grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {currentStepData?.fields.map((field) => (
-            <div
-              key={field.id}
-              className={`field flex flex-col ${field.flexBoxWidth ? `w-${field.flexBoxWidth}/4` : "w-1/4"} gap-2`}
-            >
-              <label className="block text-sm font-medium text-slate-300">
-                {field.label}
-              </label>
-              {renderField(field)}
-            </div>
-          ))}
+        <div className="fields grid grid-cols-1 gap-6">
+          {currentStepData?.fields.map((field) => {
+            const fieldValue = formData?.get(field.userProperty) ?? "";
+            return (
+              <div key={field.id} className="field flex w-full flex-col gap-2">
+                <CustomFieldInput
+                  field={field}
+                  initialValue={fieldValue}
+                  error={errors.get(field.userProperty)}
+                  onFieldBlur={handleFieldBlur}
+                />
+              </div>
+            );
+          })}
         </div>
 
+        {/* Navigation */}
         <div className="navigation mt-6 flex justify-between">
           <button
             type="button"
@@ -273,18 +234,23 @@ export function Wizard() {
           >
             Previous
           </button>
-          {currentStep === (formLayout?.steps.length ?? 0) - 1 ? (
+
+          {currentStep === (formLayout?.steps.length ?? 1) - 1 ? (
+            // Last step => Submit
             <button
               type="submit"
               className="rounded-md bg-blue-500 px-6 py-3 text-white hover:bg-blue-600"
+              disabled={isSubmitting}
             >
-              Submit
+              {isSubmitting ? "Submitting..." : "Submit"}
             </button>
           ) : (
+            // Not last step => Next
             <button
               type="button"
               onClick={handleNextStep}
               className="rounded-md bg-green-500 px-6 py-3 text-white hover:bg-green-600"
+              disabled={isSubmitting}
             >
               Next
             </button>

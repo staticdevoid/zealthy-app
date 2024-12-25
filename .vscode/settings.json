@@ -1,4 +1,5 @@
 {
     "prettier.useEditorConfig": false,
-    "prettier.configPath": "/Users/jordanjones/zealthy-app/prettier.config.js"
+    "prettier.configPath": "/Users/jordanjones/zealthy-app/prettier.config.js",
+    "editor.fontLigatures": true
 }

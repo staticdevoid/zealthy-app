@@ -10,7 +10,15 @@ export const metadata: Metadata = {
   description: "admin customizable onboarding flow",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
-
+`
+  docker run -d \
+  --name cloud-sql-proxy \
+  -v /Users/jordanjones/Downloads/zealthy-demo-445803-d898c9a4c8ea.json:/config/service-account.json:ro \
+  -p 127.0.0.1:3306:3306 \
+  gcr.io/cloudsql-docker/gce-proxy:latest /cloud_sql_proxy \
+  -instances=zealthy-demo-445803:us-central1:zealthy-app-db=tcp:0.0.0.0:3306 \
+  -credential_file=/config/service-account.json
+`
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
