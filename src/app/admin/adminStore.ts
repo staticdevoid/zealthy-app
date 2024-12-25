@@ -28,22 +28,13 @@ interface WizardStoreState {
 
 export const useWizardStore = create<WizardStoreState>()(
   immer((set) => ({
-    // Initial State
+ 
     localLayout: null,
 
-    // Actions
-
-    /**
-     * Sets or replaces the local copy of the layout (e.g., when first fetched).
-     */
     setLocalLayout: (layout) => {
       set(() => ({ localLayout: layout }));
     },
 
-    /**
-     * Reorder a field up or down within the same step.
-     * Swaps array elements using Immer for a clean immutable update.
-     */
     reorderFieldWithinStep: (stepIndex, fieldIndex, direction) => {
       set((state) => {
         if (!state.localLayout) return;
@@ -53,38 +44,39 @@ export const useWizardStore = create<WizardStoreState>()(
         const newIndex = fieldIndex + direction;
         if (newIndex < 0 || newIndex >= step.fields.length) return;
 
-        // Swap fields
         const temp = step.fields[fieldIndex];
         step.fields[fieldIndex] = step.fields[newIndex]!;
         step.fields[newIndex] = temp!;
 
-        // Update the `order` property if necessary
+        
         step.fields[fieldIndex].order = fieldIndex;
         step.fields[newIndex].order = newIndex;
       });
     },
 
-    /**
-     * Moves a field from one step to another.
-     * Removes the field from the old step array and adds it to the new step's fields array.
-     */
     moveFieldToAnotherStep: (fromStepIndex, fromFieldIndex, toStepIndex) => {
       set((state) => {
         if (!state.localLayout) return;
+    
         const oldStep = state.localLayout.steps[fromStepIndex];
-        if (!oldStep) return;
-
+        if (!oldStep?.fields?.[fromFieldIndex]) return;
+    
         // Remove the field from the old step
         const [movedField] = oldStep.fields.splice(fromFieldIndex, 1);
-        if (!movedField) return;
-
-        // Add the field to the new step
+    
         const newStep = state.localLayout.steps[toStepIndex];
-        if (!newStep?.fields[newStep.fields.length - 1]) return;
-        newStep.fields.push(movedField);
+        if (!newStep) return;
+    
+        // Ensure the fields array exists in the target step
+        if (!newStep.fields) newStep.fields = [];
+    
+        // Add the moved field to the new step
+        if(!movedField) return;
 
-        // Update the `order` property if necessary
-        newStep.fields[newStep.fields.length - 1]!.order = newStep.fields.length - 1;
+        newStep.fields.push(movedField);
+    
+        // Update the order of the moved field
+        movedField.order = newStep.fields.length - 1;
       });
     },
 
