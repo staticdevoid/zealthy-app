@@ -4,7 +4,7 @@
 
 import React, { useEffect } from "react";
 import { api } from "~/trpc/react";
-import type { Field, FormLayout, Step } from "~/types/types";
+import type { Field, Step } from "~/types/types";
 
 // Material-UI Imports
 import {

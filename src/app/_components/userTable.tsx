@@ -8,10 +8,9 @@ import {
   TableContainer,
   TableRow,
   Paper,
-  Typography,
   Box,
 } from "@mui/material";
-import { User } from "@prisma/client";
+import { type User } from "@prisma/client";
 
 interface UserTableProps {
   user: User;
@@ -21,13 +20,13 @@ const UserTable: React.FC<UserTableProps> = ({ user }) => {
   // Define the fields to display
   const fields: { label: string; value: string }[] = [
     { label: "ID", value: user.id.toString() },
-    { label: "Email", value: user.email || "N/A" },
-    { label: "About Me", value: user.aboutMe || "N/A" },
-    { label: "Street", value: user.street || "N/A" },
-    { label: "City", value: user.city || "N/A" },
-    { label: "State", value: user.state || "N/A" },
-    { label: "Postal Code", value: user.postalCode || "N/A" },
-    { label: "Country", value: user.country || "N/A" },
+    { label: "Email", value: user.email ?? "N/A" },
+    { label: "About Me", value: user.aboutMe ?? "N/A" },
+    { label: "Street", value: user.street ?? "N/A" },
+    { label: "City", value: user.city ?? "N/A" },
+    { label: "State", value: user.state ?? "N/A" },
+    { label: "Postal Code", value: user.postalCode ?? "N/A" },
+    { label: "Country", value: user.country ?? "N/A" },
     {
       label: "Birthdate",
       value: user.birthdate

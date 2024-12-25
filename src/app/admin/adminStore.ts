@@ -2,7 +2,7 @@
 
 import {create} from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { FormLayout, Step, Field } from '~/types/types';
+import type { FormLayout } from '~/types/types';
 
 /**
  * The shape of our wizard store.
@@ -80,7 +80,7 @@ export const useWizardStore = create<WizardStoreState>()(
 
         // Add the field to the new step
         const newStep = state.localLayout.steps[toStepIndex];
-        if (!newStep || !newStep.fields[newStep.fields.length - 1]) return;
+        if (!newStep?.fields[newStep.fields.length - 1]) return;
         newStep.fields.push(movedField);
 
         // Update the `order` property if necessary
