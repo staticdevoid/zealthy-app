@@ -50,8 +50,8 @@ This project implements a dynamic "Custom Onboarding Flow" for users with an adm
 ### 1. Clone the Repository
 
 ```bash
-git clone <repository-url>
-cd zealthy-onboarding
+git clone https://github.com/staticdevoid/zealthy-app
+cd zealthy-app
 ```
 
 ### 2. Install Dependencies
