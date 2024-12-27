@@ -8,7 +8,8 @@ export const userRouter = createTRPCRouter({
   }),
   getUserByEmail: publicProcedure.input(z.object({ email: z.string().nullable()})).query(async ({ ctx, input }) => {
     if (!input.email) {
-      throw new Error("Login is required.");
+      throw new Error("Progress through the wizard to view user data!");
+      
     }
     const user = await ctx.db.user.findFirst({
       where: { email: input.email },
