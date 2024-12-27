@@ -1,15 +1,4 @@
-// src/components/UserTable.tsx
-
 import React from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableRow,
-  Paper,
-  Box,
-} from "@mui/material";
 import { type User } from "@prisma/client";
 
 interface UserTableProps {
@@ -40,26 +29,28 @@ const UserTable: React.FC<UserTableProps> = ({ user }) => {
   ];
 
   return (
-    <Box display="flex" justifyContent="center" mt={4}>
-      <TableContainer component={Paper} sx={{ maxWidth: 600 }}>
-        <Table aria-label="user details table">
-          <TableBody>
+    <div className="mt-8 flex justify-center">
+      <div className="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-md">
+        <table className="w-full border-collapse text-left">
+          <tbody>
             {fields.map((field) => (
-              <TableRow key={field.label}>
-                <TableCell
-                  component="th"
+              <tr
+                key={field.label}
+                className="border-b last:border-none hover:bg-gray-100"
+              >
+                <th
+                  className="w-1/3 bg-gray-50 px-4 py-3 font-semibold text-gray-700"
                   scope="row"
-                  sx={{ fontWeight: "bold", width: "30%" }}
                 >
                   {field.label}
-                </TableCell>
-                <TableCell>{field.value}</TableCell>
-              </TableRow>
+                </th>
+                <td className="px-4 py-3 text-gray-800">{field.value}</td>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Box>
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 };
 

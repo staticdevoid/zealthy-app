@@ -13,16 +13,17 @@ interface WizardStoreState {
 
   // Actions
   setLocalLayout: (layout: FormLayout | null) => void;
-  reorderFieldWithinStep: (
+  reorderSectionWithinStep: (
     stepIndex: number,
-    fieldIndex: number,
+    sectionIndex: number,
     direction: -1 | 1,
   ) => void;
-  moveFieldToAnotherStep: (
+  moveSectionToAnotherStep: (
     fromStepIndex: number,
-    fromFieldIndex: number,
+    fromSectionIndex: number,
     toStepIndex: number,
   ) => void;
+  toggleVisibility: (stepIndex: number, sectionIndex: number) => void;
   updateStepTitle: (stepIndex: number, newTitle: string) => void;
 }
 
@@ -35,48 +36,60 @@ export const useWizardStore = create<WizardStoreState>()(
       set(() => ({ localLayout: layout }));
     },
 
-    reorderFieldWithinStep: (stepIndex, fieldIndex, direction) => {
+    reorderSectionWithinStep: (stepIndex, sectionIndex, direction) => {
       set((state) => {
         if (!state.localLayout) return;
         const step = state.localLayout.steps[stepIndex];
         if (!step) return;
 
-        const newIndex = fieldIndex + direction;
-        if (newIndex < 0 || newIndex >= step.fields.length) return;
+        const newIndex = sectionIndex + direction;
+        if (newIndex < 0 || newIndex >= step.sections.length) return;
 
-        const temp = step.fields[fieldIndex];
-        step.fields[fieldIndex] = step.fields[newIndex]!;
-        step.fields[newIndex] = temp!;
+        const temp = step.sections[sectionIndex];
+        step.sections[sectionIndex] = step.sections[newIndex]!;
+        step.sections[newIndex] = temp!;
 
         
-        step.fields[fieldIndex].order = fieldIndex;
-        step.fields[newIndex].order = newIndex;
+        step.sections[sectionIndex].order = sectionIndex;
+        step.sections[newIndex].order = newIndex;
+      });
+    },
+    toggleVisibility: (stepIndex, sectionIndex) => {
+      set((state) => {
+        if (!state.localLayout) return;
+        const step = state.localLayout.steps[stepIndex];
+        if (!step) return;
+
+        const section = step.sections[sectionIndex];
+        if (!section) return;
+
+        section.isFrontendVisible = !section.isFrontendVisible;
       });
     },
 
-    moveFieldToAnotherStep: (fromStepIndex, fromFieldIndex, toStepIndex) => {
+    moveSectionToAnotherStep: (fromStepIndex, fromSectionIndex, toStepIndex) => {
       set((state) => {
         if (!state.localLayout) return;
     
         const oldStep = state.localLayout.steps[fromStepIndex];
-        if (!oldStep?.fields?.[fromFieldIndex]) return;
+        if (!oldStep?.sections?.[fromSectionIndex]) return;
     
-        // Remove the field from the old step
-        const [movedField] = oldStep.fields.splice(fromFieldIndex, 1);
+        // Remove the section from the old step
+        const [movedSection] = oldStep.sections.splice(fromSectionIndex, 1);
     
         const newStep = state.localLayout.steps[toStepIndex];
         if (!newStep) return;
     
         // Ensure the fields array exists in the target step
-        if (!newStep.fields) newStep.fields = [];
+        if (!newStep.sections) newStep.sections = [];
     
         // Add the moved field to the new step
-        if(!movedField) return;
+        if(!movedSection) return;
 
-        newStep.fields.push(movedField);
+        newStep.sections.push(movedSection);
     
         // Update the order of the moved field
-        movedField.order = newStep.fields.length - 1;
+        movedSection.order = newStep.sections.length - 1;
       });
     },
 

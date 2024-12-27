@@ -1,5 +1,7 @@
 {
     "prettier.useEditorConfig": false,
     "prettier.configPath": "/Users/jordanjones/zealthy-app/prettier.config.js",
-    "editor.fontLigatures": true
+    "editor.fontLigatures": true,
+    "WillLuke.nextjs.addTypesOnSave": true,
+    "WillLuke.nextjs.hasPrompted": true
 }

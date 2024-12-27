@@ -11,8 +11,7 @@ datasource db {
 }
 
 model User {
-    id Int @id @default(autoincrement())
-
+    id         Int       @id @default(autoincrement())
     email      String?   @unique
     password   String?
     aboutMe    String?
@@ -22,8 +21,7 @@ model User {
     postalCode String?
     country    String?
     birthdate  DateTime?
-
-    createdAt DateTime @default(now())
+    createdAt  DateTime  @default(now())
 }
 
 model Form {
@@ -35,20 +33,32 @@ model Form {
 }
 
 model Step {
-    id        Int      @id @default(autoincrement())
+    id        Int       @id @default(autoincrement())
     formId    Int
     order     Int
     title     String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-    fields    Field[]
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+    sections  Section[]
+    form      Form      @relation(fields: [formId], references: [id])
+}
 
-    form Form @relation(fields: [formId], references: [id])
+model Section {
+    id                Int      @id @default(autoincrement())
+    stepId            Int
+    order             Int
+    title             String
+    isAdminMoveable   Boolean  @default(true)
+    isFrontendVisible Boolean  @default(true)
+    createdAt         DateTime @default(now())
+    updatedAt         DateTime @updatedAt
+    fields            Field[]
+    step              Step     @relation(fields: [stepId], references: [id])
 }
 
 model Field {
     id           Int       @id @default(autoincrement())
-    stepId       Int
+    sectionId    Int? // Nullable for fields without sections
     label        String
     userProperty String    @default("")
     fieldType    FieldType @default(TEXT)
@@ -56,8 +66,8 @@ model Field {
     isRequired   Boolean   @default(true)
     createdAt    DateTime  @default(now())
     updatedAt    DateTime  @updatedAt
-    flexBoxWidth Int       @default(4) //1-4 each being 25 percent of the full width (not accounting for padding)
-    step         Step      @relation(fields: [stepId], references: [id])
+    flexBoxWidth Int       @default(4) //1-4 each being 25 percent of the full width
+    section      Section?  @relation(fields: [sectionId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 }
 
 enum FieldType {

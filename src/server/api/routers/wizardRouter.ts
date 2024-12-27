@@ -1,5 +1,3 @@
-// src/server/api/routers/wizardRouter.ts
-
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 
@@ -22,11 +20,21 @@ const fieldSchema = z.object({
   order: z.number(),
 });
 
+const sectionSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  order: z.number(),
+  isAdminMoveable: z.boolean(),
+  isFrontendVisible: z.boolean(),
+  fields: z.array(fieldSchema),
+  
+});
+
 const stepSchema = z.object({
   id: z.number(),
   title: z.string(),
   order: z.number(),
-  fields: z.array(fieldSchema),
+  sections: z.array(sectionSchema),
 });
 
 const formLayoutSchemaWithSteps = z.object({
@@ -36,84 +44,131 @@ const formLayoutSchemaWithSteps = z.object({
 });
 
 export const wizardRouter = createTRPCRouter({
-  // 1. Query to get the existing layout
-  getLayout: publicProcedure.query(async ({ ctx }) => {
-    const layout = await ctx.db.form.findUnique({
-      where: {
-        id: 1, // Only defined form for the purposes of this demo
-      },
+  // Fetch layout for admin use
+  getLayoutAdmin: publicProcedure.query(async ({ ctx }) => {
+    return await ctx.db.form.findUnique({
+      where: { id: 1 },
       include: {
         steps: {
-          orderBy: {
-            order: "asc",
-          },
+          orderBy: { order: "asc" },
           include: {
-            fields: {
-              orderBy: {
-                order: "asc",
-              },
+            sections: {
+              orderBy: { order: "asc" },
+              include: { fields: { orderBy: { order: "asc" } } },
+            },
+          },
+        },
+      },
+    }) ?? null;
+  }),
+
+  // Fetch layout for frontend use
+  getLayoutFrontend: publicProcedure.query(async ({ ctx }) => {
+    const form = await ctx.db.form.findUnique({
+      where: { id: 1 },
+      include: {
+        steps: {
+          orderBy: { order: "asc" },
+          include: {
+            sections: {
+              orderBy: { order: "asc" },
+              include: { fields: { orderBy: { order: "asc" } } },
             },
           },
         },
       },
     });
+    for(const step of form?.steps ?? []) {
+      step.sections = step.sections.filter((section) => section.isFrontendVisible);
+    }
 
-    return layout;
+    return form ?? null;
   }),
 
-  // 2. Mutation to update the layout
+  // Update layout
   updateLayout: publicProcedure
     .input(formLayoutSchemaWithSteps)
     .mutation(async ({ ctx, input }) => {
       const { id, steps } = input;
 
-      console.log("Received updateLayout mutation with input:", JSON.stringify(input, null, 2));
-
-      // 2a. Check if the form exists
-      const formExists = await ctx.db.form.findUnique({
-        where: { id: 1 }, // Assuming only one form with id=1
-      });
-
+      // Check if form exists
+      const formExists = await ctx.db.form.findUnique({ where: { id } });
       if (!formExists) {
         throw new Error(`Form with id=${id} not found.`);
       }
 
       try {
-        // Use a transaction to ensure all updates are atomic
-        await ctx.db.$transaction(async (prisma) => {
+        const updatedForm = await ctx.db.$transaction(async (prisma) => {
           for (const step of steps) {
-            // Update each step's title and order
+            // Update step properties
             await prisma.step.update({
               where: { id: step.id },
-              data: {
-                title: step.title,
-                order: step.order,
-              },
+              data: { title: step.title, order: step.order },
             });
 
-            for (const field of step.fields) {
-              // Update each field's properties within the step
-              await prisma.field.update({
-                where: { id: field.id },
+            const stepSections = step.sections ?? [];
+            for (const section of stepSections) {
+              // Validate and update section properties
+              const sectionExists = await prisma.section.findUnique({
+                where: { id: section.id },
+              });
+              if (!sectionExists) {
+                throw new Error(`Section with id=${section.id} not found.`);
+              }
+
+              await prisma.section.update({
+                where: { id: section.id },
                 data: {
-                  label: field.label,
-                  fieldType: field.fieldType,
-                  userProperty: field.userProperty,
-                  flexBoxWidth: field.flexBoxWidth,
-                  isRequired: field.isRequired,
-                  order: field.order,
-                  stepId: step.id, // Ensure the field is associated with the correct step
+                  title: section.title,
+                  order: section.order,
+                  isFrontendVisible: section.isFrontendVisible,
                 },
               });
+
+              // Update fields
+              for (const field of section.fields ?? []) {
+                await prisma.field.update({
+                  where: { id: field.id },
+                  data: {
+                    label: field.label,
+                    fieldType: field.fieldType,
+                    userProperty: field.userProperty,
+                    flexBoxWidth: field.flexBoxWidth,
+                    isRequired: field.isRequired,
+                    order: field.order,
+                    sectionId: section.id,
+                  },
+                });
+              }
             }
           }
+
+          // Fetch and return the updated form layout
+          return await prisma.form.findUnique({
+            where: { id },
+            include: {
+              steps: {
+                orderBy: { order: "asc" },
+                include: {
+                  sections: {
+                    orderBy: { order: "asc" },
+                    include: { fields: { orderBy: { order: "asc" } } },
+                  },
+                },
+              },
+            },
+          });
         });
 
         console.log("updateLayout mutation successful");
-        return { success: true };
+        return updatedForm;
       } catch (error) {
         console.error("Error in updateLayout mutation:", error);
-        throw new Error("Failed to update layout. Please try again.");
+        throw new Error(
+          `Failed to update layout. Reason: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+        );
       }
     }),
 });
