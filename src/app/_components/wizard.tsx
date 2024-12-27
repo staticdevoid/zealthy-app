@@ -47,8 +47,7 @@ export function Wizard() {
         );
       }
     },
-    onError: () =>
-      setErrorForField("password", "Authentication error occurred."),
+    onError: () => (errors.size === 0 ? alert("Authentication failed.") : null),
     onSettled: () => setIsSubmitting(false),
   });
 
@@ -86,17 +85,23 @@ export function Wizard() {
   };
 
   const validateStep = (): boolean => {
+    let isValid = true;
     const errorsMap = new Map<string, string>();
     formLayout?.steps[currentStep]?.sections.forEach((section) => {
       section.fields.forEach((field) => {
         const value = formData.get(field.userProperty) ?? "";
         const error = validateField(field, value);
-        if (error) errorsMap.set(field.userProperty, error);
+        if (error) {
+          errorsMap.set(field.userProperty, error);
+          isValid = false;
+        } else {
+          errorsMap.set(field.userProperty, "");
+        }
       });
     });
-    setErrorForField(""); // Clear existing errors
+
     errorsMap.forEach((error, key) => setErrorForField(key, error));
-    return errorsMap.size === 0;
+    return isValid;
   };
 
   const handleFieldBlur = (field: Field, newValue: string) => {
@@ -146,7 +151,7 @@ export function Wizard() {
 
       if (currentStep === (formLayout?.steps.length ?? 1) - 1) {
         await handleSubmit();
-      } else {
+      } else if (validateStep()) {
         setCurrentStep(currentStep + 1);
       }
     }
@@ -169,6 +174,28 @@ export function Wizard() {
         <h2 className="mb-6 text-center text-2xl font-semibold text-slate-100">
           {currentStepData?.title ?? "Step"}
         </h2>
+
+        {/* Progress Indicator */}
+        <div className="mb-6 flex justify-center">
+          {formLayout?.steps.map((_, index) => (
+            <div key={index} className="flex items-center">
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-white ${
+                  index === currentStep
+                    ? "bg-blue-500"
+                    : index < currentStep
+                      ? "bg-green-500"
+                      : "bg-gray-400"
+                }`}
+              >
+                {index + 1}
+              </div>
+              {index < (formLayout?.steps.length ?? 1) - 1 && (
+                <div className="h-1 w-10 bg-gray-400"></div>
+              )}
+            </div>
+          ))}
+        </div>
 
         <div className="fields grid grid-cols-1 gap-6">
           {currentStepData?.sections.flatMap((section) =>
