@@ -6,6 +6,15 @@ export const userRouter = createTRPCRouter({
     const users = await ctx.db.user.findFirst({});
     return users;
   }),
+  getUserByEmail: publicProcedure.input(z.object({ email: z.string().nullable()})).query(async ({ ctx, input }) => {
+    if (!input.email) {
+      throw new Error("Login is required.");
+    }
+    const user = await ctx.db.user.findFirst({
+      where: { email: input.email },
+    });
+    return user;
+  }),
 
   userExists: publicProcedure
     .input(z.object({ email: z.string().min(1) }))

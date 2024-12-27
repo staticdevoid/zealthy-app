@@ -1,60 +1,49 @@
-// src/app/data/page.tsx
-
 "use client";
 
 import React from "react";
 
-import {
-  Box,
-  Typography,
-  CircularProgress,
-  Alert,
-  Container,
-} from "@mui/material";
-import UserTable from "../_components/userTable";
 import { api } from "~/trpc/react";
+import { useWizardStore } from "../_stores/wizardStore";
+import UserTable from "../_components/userTable";
 
 const DataPage: React.FC = () => {
-  // Fetch the user with id=1 using TRPC
+  // Retrieve the persisted email from the wizard store
+  const email = useWizardStore((state) => state.authenticatedEmail);
+  console.log(email);
+  // Fetch the user based on the email using TRPC
   const {
     data: user,
     isLoading,
     isError,
     error,
-  } = api.user.getUserTable.useQuery();
+  } = api.user.getUserByEmail.useQuery({ email });
 
   return (
-    <Container maxWidth="sm">
-      <Box sx={{ mt: 4, textAlign: "center" }}>
-        <Typography variant="h4" gutterBottom>
-          User Details
-        </Typography>
+    <div className="container mx-auto mt-8">
+      <h1 className="text-center text-2xl font-bold">User Details</h1>
 
-        {isLoading && (
-          <Box display="flex" justifyContent="center" mt={4}>
-            <CircularProgress />
-          </Box>
-        )}
+      {isLoading && (
+        <div className="mt-8 flex justify-center">
+          <div className="loader">Loading...</div>
+        </div>
+      )}
 
-        {isError && (
-          <Box mt={4}>
-            <Alert severity="error">
-              {error?.message || "An error occurred while fetching the user."}
-            </Alert>
-          </Box>
-        )}
+      {isError && (
+        <div className="mt-8 rounded border border-red-600 p-4 text-red-600">
+          {error?.message ?? "An error occurred while fetching the user."}
+        </div>
+      )}
 
-        {user ? (
-          <UserTable user={user} />
-        ) : (
-          !isLoading && (
-            <Box mt={4}>
-              <Alert severity="info">No user found.</Alert>
-            </Box>
-          )
-        )}
-      </Box>
-    </Container>
+      {user ? (
+        <UserTable user={user} />
+      ) : (
+        !isLoading && (
+          <div className="mt-8 rounded border border-blue-600 p-4 text-blue-600">
+            No user found.
+          </div>
+        )
+      )}
+    </div>
   );
 };
 
