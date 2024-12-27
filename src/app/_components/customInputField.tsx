@@ -1,98 +1,53 @@
-import { type Field } from "@prisma/client";
-import React, { useState, useEffect, memo } from "react";
-// Adjust as needed
+import React from "react";
+import { Field } from "~/types/types";
 
-type CustomFieldInputProps = {
+interface CustomFieldInputProps {
   field: Field;
-  initialValue: string; // The starting value for this field
-  onFieldBlur: (field: Field, newValue: string) => void;
+  initialValue: string;
   error?: string;
-};
+  onFieldBlur: (field: Field, newValue: string) => void;
+}
 
-export const CustomFieldInput = memo(function HybridFieldInput({
+export const CustomFieldInput: React.FC<CustomFieldInputProps> = ({
   field,
   initialValue,
-  onFieldBlur,
   error,
-}: CustomFieldInputProps) {
-  const [value, setValue] = useState(initialValue);
-  useEffect(() => {
-    setValue(initialValue);
-  }, [initialValue]);
+  onFieldBlur,
+}) => {
+  const [value, setValue] = React.useState(initialValue);
 
   const handleBlur = () => {
     onFieldBlur(field, value);
   };
 
-  const inputClass = `p-3 rounded-lg border ${
-    error ? "border-red-500" : "border-slate-400"
-  } focus:outline-none focus:ring-2 focus:ring-slate-500 text-slate-900`;
-
-  // Render input/textarea based on the fieldType
-  const renderInput = () => {
-    switch (field.fieldType) {
-      case "TEXT":
-      case "EMAIL":
-      case "NUMBER":
-      case "ZIP":
-        return (
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onBlur={handleBlur}
-            className={inputClass}
-            required={field.isRequired}
-          />
-        );
-      case "DATE":
-        return (
-          <input
-            type="date"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onBlur={handleBlur}
-            className={inputClass}
-            required={field.isRequired}
-          />
-        );
-      case "PASSWORD":
-        return (
-          <input
-            type="password"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onBlur={handleBlur}
-            className={inputClass}
-            required={field.isRequired}
-          />
-        );
-      case "MULTILINETEXT":
-        return (
-          <textarea
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onBlur={handleBlur}
-            className={inputClass}
-            required={field.isRequired}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
-    <div className="relative w-full">
-      <label className="block text-sm font-medium text-slate-300">
+    <div className="mb-4">
+      <label
+        htmlFor={field.userProperty}
+        className="mb-1 block text-sm font-medium text-slate-200"
+      >
         {field.label}
       </label>
-      {renderInput()}
-      {error && (
-        <span className="absolute left-0 top-full mt-1 text-sm text-red-500">
-          {error}
-        </span>
-      )}
+      <div className="relative">
+        <input
+          type={field.fieldType}
+          id={field.userProperty}
+          name={field.userProperty}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={handleBlur}
+          className={`block w-full rounded-lg border px-4 py-2 ${
+            error
+              ? "border-red-500 text-red-600 focus:border-red-500 focus:ring-red-500"
+              : "border-gray-600 bg-slate-800 text-slate-200 focus:border-green-500 focus:ring-green-500"
+          } shadow-sm focus:outline-none focus:ring`}
+        />
+        {error && (
+          <div className="absolute top-full mt-1 text-sm text-red-500">
+            {error}
+          </div>
+        )}
+      </div>
     </div>
   );
-});
+};

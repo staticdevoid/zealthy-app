@@ -6,7 +6,6 @@ interface UserTableProps {
 }
 
 const UserTable: React.FC<UserTableProps> = ({ user }) => {
-  // Define the fields to display
   const fields: { label: string; value: string }[] = [
     { label: "ID", value: user.id.toString() },
     { label: "Email", value: user.email ?? "N/A" },

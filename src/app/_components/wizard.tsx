@@ -1,198 +1,244 @@
 "use client";
 
-import { useState } from "react";
+import React, { useEffect } from "react";
 import { api } from "~/trpc/react";
-import { z } from "zod";
-import { type Field } from "@prisma/client";
 import { CustomFieldInput } from "./customInputField";
-
-const fieldTypeValidationMap = {
-  MULTILINETEXT: z.string().min(1, "This field is mandatory"),
-  TEXT: z.string().min(1, "This field is mandatory"),
-  NUMBER: z.number(),
-  DATE: z.string().refine((val) => !isNaN(Date.parse(val)), "Invalid date"),
-  EMAIL: z.string().email("Please use a valid email"),
-  PASSWORD: z
-    .string()
-    .min(8, "Your password must be at least 8 characters long")
-    .max(16, "Your password must not exceed 16 characters"),
-  ZIP: z.string().length(5, "Must be 5 digits"),
-} as const;
-
-enum Navigation {
-  Previous,
-  Next,
-  Submit,
-}
+import { useWizardStore } from "../_stores/wizardStore";
+import type { Field } from "~/types/types";
+import { boolean } from "zod";
 
 export function Wizard() {
+  const currentStep = useWizardStore((state) => state.currentStep);
+  const formData = useWizardStore((state) => state.formData);
+  const errors = useWizardStore((state) => state.errors);
+  const isSubmitting = useWizardStore((state) => state.isSubmitting);
+  const formLayout = useWizardStore((state) => state.formLayout);
+  const isLoading = useWizardStore((state) => state.isLoading);
+  const error = useWizardStore((state) => state.error);
+  const setFormLayout = useWizardStore((state) => state.setFormLayout);
+  const setLoading = useWizardStore((state) => state.setLoading);
+  const setError = useWizardStore((state) => state.setError);
+  const setCurrentStep = useWizardStore((state) => state.setCurrentStep);
+  const setFormData = useWizardStore((state) => state.setFormData);
+  const setErrorForField = useWizardStore((state) => state.setErrorForField);
+  const setIsSubmitting = useWizardStore((state) => state.setIsSubmitting);
+  const reset = useWizardStore((state) => state.reset);
+
   const {
-    data: formLayout,
-    isLoading,
-    error,
+    data,
+    isLoading: queryLoading,
+    error: queryError,
   } = api.wizard.getLayoutFrontend.useQuery();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState<Map<string, string>>(new Map());
-  const [errors, setErrors] = useState<Map<string, string>>(new Map());
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const mutation = api.user.updateUserOnboarding.useMutation();
+  const updateUserData = api.user.updateUserOnboarding.useMutation();
 
-  const currentStepData = formLayout?.steps[currentStep];
-
-  const validateField = (field: Field, input?: string): boolean => {
-    const value = input ?? formData.get(field.userProperty) ?? "";
-    const validator = fieldTypeValidationMap[field.fieldType];
-
-    const result = validator.safeParse(value);
-    if (!result.success) {
-      setErrors((prev) => {
-        const updated = new Map(prev);
-        updated.set(
-          field.userProperty,
-          result.error.errors[0]?.message ?? "Invalid input",
+  const authMutation = api.user.authUser.useMutation({
+    onMutate: () => {
+      setIsSubmitting(true);
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        setCurrentStep(currentStep + 1);
+      } else {
+        setErrorForField(
+          "password",
+          result.message || "Authentication failed.",
         );
-        return updated;
-      });
-      return false;
+      }
+    },
+    onError: () => {
+      setErrorForField("password", "Authentication error occurred.");
+    },
+    onSettled: () => {
+      setIsSubmitting(false);
+    },
+  });
+
+  useEffect(() => {
+    setLoading(queryLoading);
+  }, [queryLoading, setLoading]);
+
+  useEffect(() => {
+    if (data) {
+      setFormLayout(data);
     }
+  }, [data, setFormLayout]);
 
-    setErrors((prev) => {
-      const updated = new Map(prev);
-      updated.delete(field.userProperty);
-      return updated;
-    });
+  useEffect(() => {
+    if (queryError) {
+      const errorMessage =
+        typeof queryError === "object" &&
+        queryError !== null &&
+        "message" in queryError
+          ? (queryError as { message: string }).message
+          : "An unexpected error occurred.";
+      setError(errorMessage);
+    }
+  }, [queryError, setError]);
 
-    return true;
+  const validateField = (field: Field, value: string): string | null => {
+    switch (field.userProperty) {
+      case "email":
+        if (!value) return "Email is required.";
+        if (!/^[\w.%+-]+@[\w.-]+\.[a-zA-Z]{2,}$/.test(value))
+          return "Invalid email address.";
+        return null;
+      case "password":
+        if (!value) return "Password is required.";
+        if (value.length < 6) return "Password must be at least 6 characters.";
+        return null;
+      default:
+        return value ? null : `${field.label} is required.`;
+    }
   };
 
-  const validateCurrentStep = (): boolean => {
-    if (!currentStepData) return false;
+  const validateForm = (): boolean => {
+    const errorsMap = new Map<string, string>();
+    formLayout?.steps.forEach((step) => {
+      step.sections.forEach((section) => {
+        section.fields.forEach((field) => {
+          const value = formData.get(field.userProperty) ?? "";
+          const error = validateField(field, value);
+          if (error) errorsMap.set(field.userProperty, error);
+        });
+      });
+    });
+    setErrorForField(""); // Clear all errors
+    errorsMap.forEach((error, key) => setErrorForField(key, error));
+    return errorsMap.size === 0;
+  };
 
-    let isValid = true;
-    for (const section of currentStepData.sections) {
-      for (const field of section.fields) {
-        isValid = validateField(field) && isValid;
-      }
+  const handleAuth = async () => {
+    const email = formData.get("email");
+    const password = formData.get("password");
+
+    let hasError = false;
+
+    if (!email) {
+      setErrorForField("email", "Email is required.");
+      hasError = true;
     }
-    return isValid;
+
+    if (!password) {
+      setErrorForField("password", "Password is required.");
+      hasError = true;
+    }
+
+    if (hasError) return;
+
+    await authMutation.mutateAsync({ email: email!, password: password! });
   };
 
   const handleFieldBlur = (field: Field, newValue: string) => {
-    validateField(field, newValue);
-    setFormData((prev) => {
-      const updated = new Map(prev);
-      updated.set(field.userProperty, newValue);
-      return updated;
-    });
+    setErrorForField(field.userProperty, "");
+    const error = validateField(field, newValue);
+    if (error) setErrorForField(field.userProperty, error);
+    setFormData(field.userProperty, newValue);
   };
 
-  const saveStepData = async () => {
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    try {
+      console.log("Submitting form data:", Object.fromEntries(formData));
+      reset();
+      alert("Form submitted successfully!");
+    } catch (error) {
+      setError("Submission failed. Please try again.");
+    }
+  };
+
+  const handleNextStep = async () => {
+    const currentStepData = formLayout?.steps[currentStep];
     if (!currentStepData) return;
 
-    for (const section of currentStepData.sections) {
-      for (const field of section.fields) {
-        const fieldValue = formData.get(field.userProperty);
-        if (fieldValue) {
-          await mutation.mutateAsync({
-            userProperty: field.userProperty,
-            value: fieldValue,
-            fieldType: field.fieldType,
+    const isAuthStep = currentStepData.sections.some(
+      (section) =>
+        section.title === "Auth" ||
+        section.fields.some(
+          (field) =>
+            field.userProperty === "email" || field.userProperty === "password",
+        ),
+    );
+
+    if (isAuthStep) {
+      await handleAuth();
+    } else {
+      let isValid = true;
+      formLayout?.steps[currentStep]?.sections.forEach((section) => {
+        section.fields.forEach((field) => {
+          const value = formData.get(field.userProperty) ?? "";
+          const error = validateField(field, value);
+          if (error) {
+            setErrorForField(field.userProperty, error);
+            isValid = false;
+          }
+        });
+      });
+      if (isValid) {
+        formLayout?.steps[currentStep]?.sections.forEach((section) => {
+          section.fields.forEach((field) => {
+            const value = formData.get(field.userProperty) ?? "";
+            updateUserData.mutate({
+              email: formData.get("email") ?? "",
+              value: value,
+              userProperty: field.userProperty,
+              fieldType: field.fieldType,
+            });
           });
+        });
+        if (currentStep === (formLayout?.steps.length ?? 1) - 1) {
+          await handleSubmit();
+        } else {
+          setCurrentStep(
+            Math.min(currentStep + 1, (formLayout?.steps.length ?? 1) - 1),
+          );
         }
       }
     }
   };
 
-  const handleNavigation = async (navigation: Navigation) => {
-    if (navigation === Navigation.Next) {
-      if (validateCurrentStep()) {
-        await saveStepData();
-        setCurrentStep((prev) =>
-          Math.min(prev + 1, (formLayout?.steps.length ?? 1) - 1),
-        );
-      }
-    } else if (navigation === Navigation.Previous) {
-      setCurrentStep((prev) => Math.max(prev - 1, 0));
-    } else if (navigation === Navigation.Submit) {
-      if (validateCurrentStep()) {
-        setIsSubmitting(true);
-        await saveStepData();
-        setIsSubmitting(false);
-        alert("Form submitted successfully!");
-      }
-    }
+  const handlePreviousStep = () => {
+    setCurrentStep(Math.max(currentStep - 1, 0));
   };
 
   if (isLoading) {
     return <div className="p-8 text-center text-xl">Loading...</div>;
   }
+
   if (error) {
     return (
-      <div className="p-8 text-center text-xl text-red-500">
-        Error: {error.message}
-      </div>
+      <div className="p-8 text-center text-xl text-red-500">Error: {error}</div>
     );
   }
 
-  if (!formLayout) {
-    return (
-      <div className="p-8 text-center text-xl text-red-500">
-        No form layout found
-      </div>
-    );
-  }
+  const currentStepData = formLayout?.steps[currentStep];
 
   return (
-    <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+    <form className="space-y-6">
       <div className="wizard rounded-xl bg-slate-700 p-8 shadow-lg">
         <h2 className="mb-6 text-center text-2xl font-semibold text-slate-100">
-          {currentStepData?.title ?? "Untitled Step"}
+          {currentStepData?.title ?? "Step"}
         </h2>
 
-        {/* Progress Indicator */}
-        <div className="mb-6 flex items-center justify-center">
-          {formLayout.steps.map((step, index) => (
-            <div key={step.id} className="flex items-center">
-              <div
-                className={`h-8 w-8 rounded-full ${
-                  index < currentStep
-                    ? "bg-green-500"
-                    : index === currentStep
-                      ? "bg-blue-500"
-                      : "bg-gray-300"
-                } flex items-center justify-center`}
-              >
-                <span className="text-white">{index + 1}</span>
-              </div>
-              {index < formLayout.steps.length - 1 && (
-                <div className="h-1 w-10 bg-slate-400"></div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Form Fields */}
         <div className="fields grid grid-cols-1 gap-6">
           {currentStepData?.sections.map((section) =>
             section.fields.map((field) => (
-              <div key={field.id} className="field flex w-full flex-col gap-2">
-                <CustomFieldInput
-                  field={field}
-                  initialValue={formData.get(field.userProperty) ?? ""}
-                  error={errors.get(field.userProperty)}
-                  onFieldBlur={handleFieldBlur}
-                />
-              </div>
+              <CustomFieldInput
+                key={field.id}
+                field={field}
+                initialValue={formData.get(field.userProperty) ?? ""}
+                error={errors.get(field.userProperty)}
+                onFieldBlur={handleFieldBlur}
+              />
             )),
           )}
         </div>
 
-        {/* Navigation */}
         <div className="navigation mt-6 flex justify-between">
           <button
             type="button"
-            onClick={() => handleNavigation(Navigation.Previous)}
+            onClick={handlePreviousStep}
             disabled={currentStep === 0 || isSubmitting}
             className="rounded-md bg-gray-500 px-6 py-3 text-white hover:bg-gray-600"
           >
@@ -200,21 +246,17 @@ export function Wizard() {
           </button>
           <button
             type="button"
-            onClick={() =>
-              currentStep === formLayout.steps.length - 1
-                ? handleNavigation(Navigation.Submit)
-                : handleNavigation(Navigation.Next)
-            }
+            onClick={handleNextStep}
             disabled={isSubmitting}
             className={`rounded-md px-6 py-3 text-white ${
               isSubmitting
                 ? "cursor-not-allowed bg-gray-400"
-                : currentStep === formLayout.steps.length - 1
-                  ? "bg-blue-500 hover:bg-blue-600"
-                  : "bg-green-500 hover:bg-green-600"
+                : "bg-green-500 hover:bg-green-600"
             }`}
           >
-            {currentStep === formLayout.steps.length - 1 ? "Submit" : "Next"}
+            {currentStep === (formLayout?.steps.length ?? 1) - 1
+              ? "Submit"
+              : "Next"}
           </button>
         </div>
       </div>

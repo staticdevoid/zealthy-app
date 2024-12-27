@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { api } from "~/trpc/react";
-import { useWizardStore } from "./adminStore";
+import { useAdminStore } from "../_stores/adminStore";
 import type { Section, Step } from "~/types/types";
 import { Disclosure, Switch } from "@headlessui/react";
 
@@ -20,7 +20,7 @@ export default function AdminWizard() {
     moveSectionToAnotherStep,
     updateStepTitle,
     toggleVisibility,
-  } = useWizardStore();
+  } = useAdminStore();
 
   const updateLayoutMutation = api.wizard.updateLayout.useMutation();
 

@@ -1,29 +1,104 @@
-# Create T3 App
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+# Zealthy - Custom Onboarding Flow
 
-## What's next? How do I make an app with this?
+This project implements a dynamic "Custom Onboarding Flow" for users with an admin interface to manage onboarding steps and a data table to view submitted user data.
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+---
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+## Features
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+### 1. User Onboarding Wizard
 
-## Learn More
+- Multi-step wizard for collecting user data:
+  - **Step 1**: Email and password.
+  - **Step 2 & Step 3**: Customizable sections for "About Me," address fields, and birthdate.
+- Progress indicator to show the current step.
+- Saves progress and user data during the flow.
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+### 2. Admin Section
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+- Accessible at `/admin`.
+- Allows admins to manage onboarding sections:
+  - Move components between steps.
+  - Toggle visibility of sections on the frontend.
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+### 3. Data Table
 
-## How do I deploy this?
+- Accessible at `/data`.
+- Displays a table of user data stored in the database.
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+---
+
+## Technologies Used
+
+### Frontend
+
+- **Next.js**: For the user interface.
+- **Tailwind CSS**: For styling.
+- **Zustand**: For state management and persistence.
+
+### Backend
+
+- **tRPC**: For type-safe API development.
+- **Prisma**: For database interaction.
+- **MySQL**: Database for storing user and form data.
+
+---
+
+## Getting Started
+
+### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd zealthy-onboarding
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Configure the Database
+
+- Update the `.env` file with your MySQL database credentials.
+
+### 4. Run the Development Server
+
+```bash
+npm run dev
+```
+
+### 5. Migrate the Database
+
+```bash
+npx prisma migrate dev
+```
+
+---
+
+## File Structure
+
+```plaintext
+.
+├── app
+│   ├── _components      # Reusable components like Wizard and CustomFieldInput
+│   ├── _stores          # Zustand stores for global state management
+│   ├── admin            # Admin-related components
+│   ├── api              # tRPC API setup
+│   └── data             # Data table components
+├── server
+│   ├── api              # API routes
+│   └── schema           # Prisma schema
+├── styles               # Tailwind CSS configuration
+└── types                # TypeScript type definitions
+```
+
+---
+
+## Demo
+
+- Wizard: `/`
+- Admin Panel: `/admin`
+- Data Table: `/data`

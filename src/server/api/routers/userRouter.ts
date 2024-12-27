@@ -1,11 +1,9 @@
 import { z } from "zod";
-
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 
 export const userRouter = createTRPCRouter({
   getUserTable: publicProcedure.query(async ({ ctx }) => {
-    const users = await ctx.db.user.findFirst({
-    });
+    const users = await ctx.db.user.findFirst({});
     return users;
   }),
 
@@ -17,11 +15,13 @@ export const userRouter = createTRPCRouter({
       });
       return user != null ? true : false;
     }),
-    updateUserOnboarding: publicProcedure
+
+  updateUserOnboarding: publicProcedure
     .input(
       z.object({
-        userProperty: z.string(),  // The user field you want to update (e.g., "email", "password")
-        value: z.string(),         // The new value to set for the userProperty
+        email: z.string().email(),
+        userProperty: z.string(),
+        value: z.string(),
         fieldType: z.enum([
           "TEXT",
           "MULTILINETEXT",
@@ -30,7 +30,7 @@ export const userRouter = createTRPCRouter({
           "EMAIL",
           "PASSWORD",
           "ZIP",
-        ]),  // FieldType enum for validation
+        ]), // FieldType enum for validation
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -38,12 +38,11 @@ export const userRouter = createTRPCRouter({
 
       let validatedValue: string | number | Date;
 
-      // Validate the value based on fieldType
       switch (fieldType) {
         case "TEXT":
         case "MULTILINETEXT":
         case "ZIP":
-          validatedValue = value;  // For these types, treat the value as a string
+          validatedValue = value;
           break;
 
         case "EMAIL":
@@ -54,7 +53,7 @@ export const userRouter = createTRPCRouter({
           break;
 
         case "PASSWORD":
-          validatedValue = value; // Handle password as string, add hashing if necessary
+          validatedValue = value;
           break;
 
         case "NUMBER":
@@ -77,16 +76,53 @@ export const userRouter = createTRPCRouter({
           throw new Error("Unsupported field type");
       }
 
-      // Update the user record (assuming userId = 1 for the demo)
       const user = await ctx.db.user.update({
-        where: { id: 1 },  // Update user with userId = 1
+        where: { email: input.email },
         data: {
-          [userProperty]: validatedValue,  // Dynamically update the user property
+          [userProperty]: validatedValue,
         },
       });
 
       return user;
     }),
-});
-  
 
+  authUser: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email("Invalid email format."),
+        password: z.string().min(8, "Password must be at least 8 characters."),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { email, password } = input;
+
+      const existingUser = await ctx.db.user.findUnique({
+        where: { email },
+      });
+
+      if (existingUser) {
+        if (existingUser.password !== password) {
+          throw new Error("Invalid password.");
+        }
+
+        return {
+          success: true,
+          message: "User authenticated successfully.",
+          user: existingUser,
+        };
+      }
+
+      const newUser = await ctx.db.user.create({
+        data: {
+          email,
+          password, 
+        },
+      });
+
+      return {
+        success: true,
+        message: "User created successfully.",
+        user: newUser,
+      };
+    }),
+});

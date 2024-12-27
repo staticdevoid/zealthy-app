@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 
-// Define the schemas for validation using Zod
+
 const fieldSchema = z.object({
   id: z.number(),
   label: z.string(),
@@ -38,13 +38,13 @@ const stepSchema = z.object({
 });
 
 const formLayoutSchemaWithSteps = z.object({
-  id: z.number(), // Form ID
+  id: z.number(), 
   name: z.string(),
   steps: z.array(stepSchema),
 });
 
 export const wizardRouter = createTRPCRouter({
-  // Fetch layout for admin use
+  
   getLayoutAdmin: publicProcedure.query(async ({ ctx }) => {
     return await ctx.db.form.findUnique({
       where: { id: 1 },
@@ -62,7 +62,7 @@ export const wizardRouter = createTRPCRouter({
     }) ?? null;
   }),
 
-  // Fetch layout for frontend use
+  
   getLayoutFrontend: publicProcedure.query(async ({ ctx }) => {
     const form = await ctx.db.form.findUnique({
       where: { id: 1 },
@@ -85,13 +85,13 @@ export const wizardRouter = createTRPCRouter({
     return form ?? null;
   }),
 
-  // Update layout
+  
   updateLayout: publicProcedure
     .input(formLayoutSchemaWithSteps)
     .mutation(async ({ ctx, input }) => {
       const { id, steps } = input;
 
-      // Check if form exists
+      
       const formExists = await ctx.db.form.findUnique({ where: { id } });
       if (!formExists) {
         throw new Error(`Form with id=${id} not found.`);
@@ -100,7 +100,7 @@ export const wizardRouter = createTRPCRouter({
       try {
         const updatedForm = await ctx.db.$transaction(async (prisma) => {
           for (const step of steps) {
-            // Update step properties
+            
             await prisma.step.update({
               where: { id: step.id },
               data: { title: step.title, order: step.order },
@@ -108,7 +108,7 @@ export const wizardRouter = createTRPCRouter({
 
             const stepSections = step.sections ?? [];
             for (const section of stepSections) {
-              // Validate and update section properties
+              
               const sectionExists = await prisma.section.findUnique({
                 where: { id: section.id },
               });
@@ -125,7 +125,7 @@ export const wizardRouter = createTRPCRouter({
                 },
               });
 
-              // Update fields
+              
               for (const field of section.fields ?? []) {
                 await prisma.field.update({
                   where: { id: field.id },
@@ -143,7 +143,7 @@ export const wizardRouter = createTRPCRouter({
             }
           }
 
-          // Fetch and return the updated form layout
+          
           return await prisma.form.findUnique({
             where: { id },
             include: {
