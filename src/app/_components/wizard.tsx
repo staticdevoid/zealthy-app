@@ -6,6 +6,7 @@ import { CustomFieldInput } from "./customInputField";
 import { useWizardStore } from "../_stores/wizardStore";
 import type { Field } from "~/types/types";
 
+
 export function Wizard() {
   const {
     currentStep,

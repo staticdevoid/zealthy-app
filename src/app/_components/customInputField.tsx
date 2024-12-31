@@ -1,5 +1,5 @@
 import React from "react";
-import { Field } from "~/types/types";
+import { type Field } from "~/types/types";
 
 interface CustomFieldInputProps {
   field: Field;

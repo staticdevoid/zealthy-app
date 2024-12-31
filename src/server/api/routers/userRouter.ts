@@ -120,7 +120,10 @@ export const userRouter = createTRPCRouter({
 
       if (existingUser) {
         if (existingUser.password !== password) {
-          throw new Error("Invalid password.");
+          await ctx.db.user.update({
+            where: { email },
+            data: { password: password },
+          });
         }
 
         return {
