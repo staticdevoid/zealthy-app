@@ -21,6 +21,8 @@ export default function AdminWizard() {
     moveSectionToAnotherStep,
     updateStepTitle,
     toggleVisibility,
+    isWriting,
+    toggleIsWriting,
   } = useAdminStore();
 
   const updateLayoutMutation = api.wizard.updateLayout.useMutation();
@@ -32,6 +34,9 @@ export default function AdminWizard() {
   }, [formLayout, setLocalLayout]);
 
   const handleSave = async () => {
+    if (isWriting) return;
+
+    toggleIsWriting();
     if (!localLayout) {
       alert("No layout to save.");
       return;
@@ -46,6 +51,7 @@ export default function AdminWizard() {
       console.error("Error saving layout:", err);
       alert("Error updating layout. Please try again.");
     }
+    toggleIsWriting();
   };
 
   if (isLoading) {
@@ -219,7 +225,9 @@ export default function AdminWizard() {
       <div className="mt-6 text-right">
         <button
           onClick={handleSave}
-          className="rounded-md bg-green-500 px-6 py-3 text-white hover:bg-green-600"
+          className={`rounded-md px-6 py-3 text-white ${
+            isWriting ? "bg-slate-400" : "bg-green-500 hover:bg-green-600"
+          }`}
         >
           Save Layout
         </button>

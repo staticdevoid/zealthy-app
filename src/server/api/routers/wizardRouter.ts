@@ -1,8 +1,6 @@
 
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { type Field, type Section } from "@prisma/client";
-
 
 const fieldSchema = z.object({
   id: z.number(),
@@ -94,59 +92,75 @@ export const wizardRouter = createTRPCRouter({
   .mutation(async ({ ctx, input }) => {
     const { id, steps } = input;
 
-    const formExists = await ctx.db.form.findUnique({ where: { id } });
+    // Check if the form exists
+    const formExists = await ctx.db.form.findUnique({ where: {id: 1} });
     if (!formExists) {
       throw new Error(`Form with id=${id} not found.`);
     }
 
     try {
-      const startTime = Date.now();
-
       const updatedForm = await ctx.db.$transaction(async (prisma) => {
-        // Prepare batch operations
-        const stepUpdates = steps.map((step) => 
-          prisma.step.update({
-            where: { id: step.id },
-            data: { title: step.title, order: step.order },
-          })
-        );
-      
-        const sectionUpdates = steps.flatMap((step) =>
-          step.sections.map((section) =>
-            prisma.section.update({
-              where: { id: section.id },
-              data: {
-                title: section.title,
-                order: section.order,
-                isFrontendVisible: section.isFrontendVisible,
-                stepId: step.id, // Ensure stepId is updated correctly
-              },
-            })
-          )
-        );
-      
-        const fieldUpdates = steps.flatMap((step) =>
-          step.sections.flatMap((section) =>
-            section.fields.map((field) =>
-              prisma.field.update({
-                where: { id: field.id },
+        for (const step of steps) {
+          // Update step only if data has changed
+          const existingStep = await prisma.step.findUnique({ where: { id: step.id } });
+          if (!existingStep || existingStep.title !== step.title || existingStep.order !== step.order) {
+            await prisma.step.update({
+              where: { id: step.id },
+              data: { title: step.title, order: step.order },
+            });
+          }
+
+          for (const section of step.sections) {
+            // Update section only if data has changed
+            const existingSection = await prisma.section.findUnique({ where: { id: section.id } });
+            if (
+              !existingSection ||
+              existingSection.title !== section.title ||
+              existingSection.order !== section.order ||
+              existingSection.isFrontendVisible !== section.isFrontendVisible ||
+              existingSection.stepId !== step.id
+            ) {
+              await prisma.section.update({
+                where: { id: section.id },
                 data: {
-                  label: field.label,
-                  fieldType: field.fieldType,
-                  userProperty: field.userProperty,
-                  flexBoxWidth: field.flexBoxWidth,
-                  isRequired: field.isRequired,
-                  order: field.order,
-                  sectionId: section.id, // Ensure sectionId is updated correctly
+                  title: section.title,
+                  order: section.order,
+                  isFrontendVisible: section.isFrontendVisible,
+                  stepId: step.id,
                 },
-              })
-            )
-          )
-        );
-      
-        // Execute all updates in a single transaction
-        await Promise.all([...stepUpdates, ...sectionUpdates, ...fieldUpdates]);
-      
+              });
+            }
+
+            for (const field of section.fields) {
+              // Update field only if data has changed
+              const existingField = await prisma.field.findUnique({ where: { id: field.id } });
+              if (
+                !existingField ||
+                existingField.label !== field.label ||
+                existingField.fieldType !== field.fieldType ||
+                existingField.userProperty !== field.userProperty ||
+                existingField.flexBoxWidth !== field.flexBoxWidth ||
+                existingField.isRequired !== field.isRequired ||
+                existingField.order !== field.order ||
+                existingField.sectionId !== section.id
+              ) {
+                await prisma.field.update({
+                  where: { id: field.id },
+                  data: {
+                    label: field.label,
+                    fieldType: field.fieldType,
+                    userProperty: field.userProperty,
+                    flexBoxWidth: field.flexBoxWidth,
+                    isRequired: field.isRequired,
+                    order: field.order,
+                    sectionId: section.id,
+                  },
+                });
+              }
+            }
+          }
+        }
+
         // Fetch and return the updated form layout
         return prisma.form.findUnique({
           where: { id },
@@ -175,6 +189,7 @@ export const wizardRouter = createTRPCRouter({
       );
     }
   }),
+
 
 
 });

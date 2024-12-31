@@ -9,6 +9,7 @@ import type { FormLayout } from '~/types/types';
  */
 interface AdminStoreState {
   localLayout: FormLayout | null;
+  isWriting: boolean;
 
   /**
    * Sets the local form layout.
@@ -53,6 +54,11 @@ interface AdminStoreState {
    * @param newTitle - The new title for the step.
    */
   updateStepTitle: (stepIndex: number, newTitle: string) => void;
+
+  /**
+   * Toggles the writing state of the data to the server.
+   */
+  toggleIsWriting: () => void;
 }
 
 /**
@@ -61,6 +67,7 @@ interface AdminStoreState {
 export const useAdminStore = create<AdminStoreState>()(
   immer((set) => ({
     localLayout: null,
+    isWriting: false,
 
     setLocalLayout: (layout) => {
       set((state) => {
@@ -146,6 +153,11 @@ export const useAdminStore = create<AdminStoreState>()(
         if (!step) return;
 
         step.title = newTitle;
+      });
+    },
+    toggleIsWriting: () => {
+      set((state) => {
+        state.isWriting = !state.isWriting;
       });
     },
   })),
