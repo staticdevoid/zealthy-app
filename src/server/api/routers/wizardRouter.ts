@@ -1,5 +1,7 @@
+
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { type Field, type Section } from "@prisma/client";
 
 
 const fieldSchema = z.object({
@@ -22,6 +24,7 @@ const fieldSchema = z.object({
 
 const sectionSchema = z.object({
   id: z.number(),
+  stepId: z.number(),
   title: z.string(),
   order: z.number(),
   isAdminMoveable: z.boolean(),
@@ -97,56 +100,81 @@ export const wizardRouter = createTRPCRouter({
     }
 
     try {
-      await ctx.db.$transaction(async (prisma) => {
-        for (const step of steps) {
-          await prisma.step.update({
+      const startTime = Date.now();
+
+      const updatedForm = await ctx.db.$transaction(async (prisma) => {
+        // Prepare batch operations
+        const stepUpdates = steps.map((step) => 
+          prisma.step.update({
             where: { id: step.id },
             data: { title: step.title, order: step.order },
-          });
-
-          for (const section of step.sections) {
-            await prisma.section.update({
+          })
+        );
+      
+        const sectionUpdates = steps.flatMap((step) =>
+          step.sections.map((section) =>
+            prisma.section.update({
               where: { id: section.id },
               data: {
                 title: section.title,
                 order: section.order,
                 isFrontendVisible: section.isFrontendVisible,
-                stepId: step.id, // Ensure stepId is updated
+                stepId: step.id, // Ensure stepId is updated correctly
               },
-            });
-
-            for (const field of section.fields) {
-              await prisma.field.update({
+            })
+          )
+        );
+      
+        const fieldUpdates = steps.flatMap((step) =>
+          step.sections.flatMap((section) =>
+            section.fields.map((field) =>
+              prisma.field.update({
                 where: { id: field.id },
                 data: {
                   label: field.label,
+                  fieldType: field.fieldType,
+                  userProperty: field.userProperty,
+                  flexBoxWidth: field.flexBoxWidth,
+                  isRequired: field.isRequired,
                   order: field.order,
-                  sectionId: section.id,
+                  sectionId: section.id, // Ensure sectionId is updated correctly
                 },
-              });
-            }
-          }
-        }
-      });
-
-      return await ctx.db.form.findUnique({
-        where: { id },
-        include: {
-          steps: {
-            orderBy: { order: "asc" },
-            include: {
-              sections: {
-                orderBy: { order: "asc" },
-                include: { fields: { orderBy: { order: "asc" } } },
+              })
+            )
+          )
+        );
+      
+        // Execute all updates in a single transaction
+        await Promise.all([...stepUpdates, ...sectionUpdates, ...fieldUpdates]);
+      
+        // Fetch and return the updated form layout
+        return prisma.form.findUnique({
+          where: { id },
+          include: {
+            steps: {
+              orderBy: { order: "asc" },
+              include: {
+                sections: {
+                  orderBy: { order: "asc" },
+                  include: { fields: { orderBy: { order: "asc" } } },
+                },
               },
             },
           },
-        },
+        });
       });
+
+      console.log("updateLayout mutation successful");
+      return updatedForm;
     } catch (error) {
-      console.error("Error updating layout:", error);
-      throw new Error("Failed to update layout.");
+      console.error("Error in updateLayout mutation:", error);
+      throw new Error(
+        `Failed to update layout. Reason: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   }),
+
 
 });

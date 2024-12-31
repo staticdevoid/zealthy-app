@@ -41,6 +41,8 @@ model Step {
     updatedAt DateTime  @updatedAt
     sections  Section[]
     form      Form      @relation(fields: [formId], references: [id])
+
+    @@index([order])
 }
 
 model Section {
@@ -54,6 +56,8 @@ model Section {
     updatedAt         DateTime @updatedAt
     fields            Field[]
     step              Step     @relation(fields: [stepId], references: [id])
+
+    @@index([stepId])
 }
 
 model Field {
@@ -68,6 +72,8 @@ model Field {
     updatedAt    DateTime  @updatedAt
     flexBoxWidth Int       @default(4) //1-4 each being 25 percent of the full width
     section      Section?  @relation(fields: [sectionId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+    @@index([sectionId])
 }
 
 enum FieldType {
