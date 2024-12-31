@@ -11,6 +11,7 @@ export default function AdminWizard() {
     data: formLayout,
     isLoading,
     error,
+    refetch: refetchLayout,
   } = api.wizard.getLayoutAdmin.useQuery();
 
   const {
@@ -31,14 +32,19 @@ export default function AdminWizard() {
   }, [formLayout, setLocalLayout]);
 
   const handleSave = async () => {
-    if (!localLayout) return;
+    if (!localLayout) {
+      alert("No layout to save.");
+      return;
+    }
 
     try {
+      console.log("Saving layout to backend:", localLayout);
       await updateLayoutMutation.mutateAsync(localLayout);
+      await refetchLayout(); // Ensure frontend is synced with the backend
       alert("Layout saved successfully!");
     } catch (err) {
       console.error("Error saving layout:", err);
-      alert("Error updating layout!");
+      alert("Error updating layout. Please try again.");
     }
   };
 

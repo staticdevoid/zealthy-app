@@ -2,63 +2,85 @@
 
 import React from "react";
 
+type User = {
+  id: number;
+  email: string | null;
+  aboutMe: string | null;
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  country: string | null;
+  birthdate: string | null;
+  createdAt: string;
+};
+
 interface UserTableProps {
-  user: {
-    id: number;
-    email: string | null;
-    aboutMe: string | null;
-    street: string | null;
-    city: string | null;
-    state: string | null;
-    postalCode: string | null;
-    country: string | null;
-    birthdate: string | null;
-    createdAt: string;
-  };
+  users: User[];
 }
 
-const UserTable: React.FC<UserTableProps> = ({ user }) => {
-  const fields: { label: string; value: string }[] = [
-    { label: "ID", value: user.id.toString() },
-    { label: "Email", value: user.email ?? "N/A" },
-    { label: "About Me", value: user.aboutMe ?? "N/A" },
-    { label: "Street", value: user.street ?? "N/A" },
-    { label: "City", value: user.city ?? "N/A" },
-    { label: "State", value: user.state ?? "N/A" },
-    { label: "Postal Code", value: user.postalCode ?? "N/A" },
-    { label: "Country", value: user.country ?? "N/A" },
-    { label: "Birthdate", value: user.birthdate ?? "N/A" },
-    { label: "Created At", value: user.createdAt },
-  ];
-
+const UserTable: React.FC<UserTableProps> = ({ users }) => {
   return (
-    <div className="overflow-hidden rounded-lg bg-white p-6 shadow-lg">
-      <h2 className="mb-4 text-lg font-bold text-gray-800">User Details</h2>
-      <table className="w-full table-auto border-collapse text-left">
+    <div className="overflow-x-auto">
+      <table className="min-w-full table-auto border-collapse border border-gray-200">
         <thead>
-          <tr className="border-b bg-gray-100">
-            <th className="px-4 py-2 text-sm font-semibold text-gray-600">
-              Field
-            </th>
-            <th className="px-4 py-2 text-sm font-semibold text-gray-600">
-              Value
-            </th>
+          <tr className="bg-gray-100">
+            <th className="border border-gray-300 px-4 py-2">ID</th>
+            <th className="border border-gray-300 px-4 py-2">Email</th>
+            <th className="border border-gray-300 px-4 py-2">About Me</th>
+            <th className="border border-gray-300 px-4 py-2">Street</th>
+            <th className="border border-gray-300 px-4 py-2">City</th>
+            <th className="border border-gray-300 px-4 py-2">State</th>
+            <th className="border border-gray-300 px-4 py-2">Postal Code</th>
+            <th className="border border-gray-300 px-4 py-2">Country</th>
+            <th className="border border-gray-300 px-4 py-2">Birthdate</th>
+            <th className="border border-gray-300 px-4 py-2">Created At</th>
           </tr>
         </thead>
         <tbody>
-          {fields.map((field, index) => (
-            <tr
-              key={field.label}
-              className={`${
-                index % 2 === 0 ? "bg-gray-50" : "bg-white"
-              } border-b`}
-            >
-              <td className="px-4 py-2 font-medium text-gray-700">
-                {field.label}
+          {users.length === 0 ? (
+            <tr>
+              <td
+                colSpan={10}
+                className="border border-gray-300 px-4 py-2 text-center"
+              >
+                No users found.
               </td>
-              <td className="px-4 py-2 text-gray-600">{field.value}</td>
             </tr>
-          ))}
+          ) : (
+            users.map((user) => (
+              <tr key={user.id} className="even:bg-gray-50">
+                <td className="border border-gray-300 px-4 py-2">{user.id}</td>
+                <td className="border border-gray-300 px-4 py-2">
+                  {user.email ?? "N/A"}
+                </td>
+                <td className="border border-gray-300 px-4 py-2">
+                  {user.aboutMe ?? "N/A"}
+                </td>
+                <td className="border border-gray-300 px-4 py-2">
+                  {user.street ?? "N/A"}
+                </td>
+                <td className="border border-gray-300 px-4 py-2">
+                  {user.city ?? "N/A"}
+                </td>
+                <td className="border border-gray-300 px-4 py-2">
+                  {user.state ?? "N/A"}
+                </td>
+                <td className="border border-gray-300 px-4 py-2">
+                  {user.postalCode ?? "N/A"}
+                </td>
+                <td className="border border-gray-300 px-4 py-2">
+                  {user.country ?? "N/A"}
+                </td>
+                <td className="border border-gray-300 px-4 py-2">
+                  {user.birthdate ?? "N/A"}
+                </td>
+                <td className="border border-gray-300 px-4 py-2">
+                  {user.createdAt}
+                </td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>

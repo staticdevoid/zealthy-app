@@ -68,12 +68,43 @@ export const useAdminStore = create<AdminStoreState>()(
       });
     },
 
+    moveSectionToAnotherStep: (fromStepIndex, fromSectionIndex, toStepIndex) => {
+      set((state) => {
+        if (!state.localLayout) return;
+    
+        const oldStep = state.localLayout.steps[fromStepIndex];
+        const newStep = state.localLayout.steps[toStepIndex];
+        if (!oldStep || !newStep) return;
+    
+        // Remove section from old step
+        const [movedSection] = oldStep.sections.splice(fromSectionIndex, 1);
+        if (!movedSection) {
+          console.error("No section found at the specified index to move.");
+          return;
+        }
+    
+        // Update stepId and add section to the new step
+        movedSection.stepId = newStep.id;
+        newStep.sections.push(movedSection);
+    
+        // Recompute order for the new step
+        newStep.sections.forEach((section, index) => {
+          section.order = index;
+        });
+    
+        // Recompute order for the old step
+        oldStep.sections.forEach((section, index) => {
+          section.order = index;
+        });
+      });
+    },
+    
+
     reorderSectionWithinStep: (stepIndex, sectionIndex, direction) => {
       set((state) => {
-        const { localLayout } = state;
-        if (!localLayout) return;
+        if (!state.localLayout) return;
 
-        const step = localLayout.steps[stepIndex];
+        const step = state.localLayout.steps[stepIndex];
         if (!step) return;
 
         const newIndex = sectionIndex + direction;
@@ -83,31 +114,13 @@ export const useAdminStore = create<AdminStoreState>()(
         step.sections[sectionIndex] = step.sections[newIndex]!;
         step.sections[newIndex] = temp!;
 
-        step.sections[sectionIndex].order = sectionIndex;
-        step.sections[newIndex].order = newIndex;
+        // Update order values
+        step.sections.forEach((section, index) => {
+          section.order = index;
+        });
       });
     },
-
-    moveSectionToAnotherStep: (fromStepIndex, fromSectionIndex, toStepIndex) => {
-      set((state) => {
-        const { localLayout } = state;
-        if (!localLayout) return;
-
-        const oldStep = localLayout.steps[fromStepIndex];
-        if (!oldStep?.sections?.[fromSectionIndex]) return;
-
-        const [movedSection] = oldStep.sections.splice(fromSectionIndex, 1);
-        if (!movedSection) return;
-
-        const newStep = localLayout.steps[toStepIndex];
-        if (!newStep) return;
-
-        if (!newStep.sections) newStep.sections = [];
-
-        newStep.sections.push(movedSection);
-        movedSection.order = newStep.sections.length - 1;
-      });
-    },
+  
 
     toggleVisibility: (stepIndex, sectionIndex) => {
       set((state) => {

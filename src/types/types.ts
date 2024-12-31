@@ -11,6 +11,7 @@ export interface Field {
 }
 
 export interface Section {
+  stepId: number;
   id: number;
   title: string;
   order: number;

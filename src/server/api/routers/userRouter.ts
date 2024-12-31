@@ -3,8 +3,16 @@ import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 
 export const userRouter = createTRPCRouter({
   getUserTable: publicProcedure.query(async ({ ctx }) => {
-    const users = await ctx.db.user.findFirst({});
-    return users;
+    const users = await ctx.db.user.findMany({
+      orderBy: { createdAt: "asc" },
+    });
+    return users.map((user) => ({
+      ...user,
+      birthdate: user.birthdate ? user.birthdate.toISOString() : null,
+      createdAt: user.createdAt.toISOString(),
+    }));
+  
+    
   }),
   getUserByEmail: publicProcedure.input(z.object({ email: z.string().nullable()})).query(async ({ ctx, input }) => {
     if (!input.email) {
